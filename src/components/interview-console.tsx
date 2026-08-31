@@ -66,7 +66,7 @@ export function InterviewConsole() {
         <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
           <Tabs value={tab} onValueChange={setTab}>
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-              <TabsList>
+              <TabsList className="h-auto">
                 <TabsTrigger value="briefing">Зачем так</TabsTrigger>
                 <TabsTrigger value="live">Созвон</TabsTrigger>
                 <TabsTrigger value="verdict">Вердикт</TabsTrigger>
@@ -107,7 +107,11 @@ export function InterviewConsole() {
                 exportMarkdown={session.exportMarkdown}
               />
             </TabsContent>
-          </Tabs>
+            </Tabs>
+          <p className="text-muted-foreground mt-10 border-t border-foreground/10 pt-4 text-xs">
+            Не шарьте этот экран кандидату — во вкладке «Созвон» есть ключи
+            сильных и слабых ответов. Заметки остаются только в этом браузере.
+          </p>
         </main>
       </div>
     </TooltipProvider>

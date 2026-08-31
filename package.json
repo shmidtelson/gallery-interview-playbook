@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev --turbopack -p 43147 -H 0.0.0.0",
     "build": "next build --turbopack",
-    "start": "next start -p 43147 -H 0.0.0.0",
+    "build:pages": "GITHUB_PAGES=true next build --turbopack",
+    "start": "npx --yes serve out -p 43147",
     "lint": "eslint"
   },
   "dependencies": {
