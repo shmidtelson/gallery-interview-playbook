@@ -2,13 +2,14 @@
 from pathlib import Path
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT
+from reportlab.lib.enums import TA_JUSTIFY
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
+    KeepTogether,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -20,168 +21,225 @@ pdfmetrics.registerFont(TTFont("Inter", "/usr/share/fonts/truetype/macos/Inter-R
 pdfmetrics.registerFont(TTFont("Inter-Bold", "/usr/share/fonts/truetype/macos/Inter-Bold.ttf"))
 
 OUT = Path(__file__).with_name("verdict-2026-08-31.pdf")
-INK = colors.HexColor("#1a1814")
-MUTED = colors.HexColor("#5c564c")
-LINE = colors.HexColor("#d8d0c4")
-NO = colors.HexColor("#8f1d1d")
-PAPER = colors.HexColor("#f6f1e8")
-ROW = colors.HexColor("#efe8dc")
+INK = colors.HexColor("#1c1916")
+MUTED = colors.HexColor("#5a554c")
+LINE = colors.HexColor("#d4cdc2")
+RULE = colors.HexColor("#8f1d1d")
+ROW = colors.HexColor("#f1ebe2")
+PAPER = colors.white
+HEAD = colors.HexColor("#2a2622")
 
 
-def style(name, **kwargs):
-    base = dict(fontName="Inter", textColor=INK, leading=14)
+def S(name, **kwargs):
+    base = dict(fontName="Inter", textColor=INK, leading=13)
     base.update(kwargs)
     return ParagraphStyle(name, **base)
 
 
-STYLES = getSampleStyleSheet()
-H1 = style("H1", fontName="Inter-Bold", fontSize=18, leading=22, spaceAfter=6)
-H2 = style("H2", fontName="Inter-Bold", fontSize=11, leading=14, spaceBefore=14, spaceAfter=6)
-META = style("META", fontSize=9, leading=12, textColor=MUTED)
-BODY = style("BODY", fontSize=10, leading=14, alignment=TA_JUSTIFY, spaceAfter=6)
-LI = style("LI", fontSize=10, leading=14, leftIndent=12, spaceAfter=3)
-QUOTE = style(
-    "QUOTE",
-    fontSize=9.5,
-    leading=13,
-    textColor=MUTED,
-    leftIndent=10,
-    spaceBefore=2,
-    spaceAfter=6,
-)
-CELL = style("CELL", fontSize=8.5, leading=11)
-CELLB = style("CELLB", fontName="Inter-Bold", fontSize=8.5, leading=11)
-VERDICT = style(
-    "VERDICT",
-    fontName="Inter-Bold",
-    fontSize=16,
-    leading=20,
-    textColor=NO,
-    spaceBefore=8,
-    spaceAfter=8,
-)
+H1 = S("H1", fontName="Inter-Bold", fontSize=16, leading=20, spaceAfter=4)
+H2 = S("H2", fontName="Inter-Bold", fontSize=10.5, leading=13, spaceBefore=11, spaceAfter=5)
+META = S("META", fontSize=8.5, leading=11, textColor=MUTED)
+BODY = S("BODY", fontSize=9.5, leading=13, alignment=TA_JUSTIFY, spaceAfter=5)
+LI = S("LI", fontSize=9.5, leading=13, leftIndent=10, spaceAfter=2.5)
+CELL = S("CELL", fontSize=8, leading=10.5)
+CELLB = S("CELLB", fontName="Inter-Bold", fontSize=8, leading=10.5)
+DEC = S("DEC", fontName="Inter-Bold", fontSize=12, leading=15, textColor=RULE, spaceBefore=6, spaceAfter=6)
 
 
-def p(text, st=BODY):
+def P(text, st=BODY):
     return Paragraph(text, st)
+
+
+def table(rows, widths, header=True):
+    data = []
+    for i, row in enumerate(rows):
+        st = CELLB if header and i == 0 else CELL
+        bold_first = header and i > 0
+        data.append(
+            [
+                P(cell, CELLB if (j == 0 and bold_first) or (header and i == 0) else st)
+                for j, cell in enumerate(row)
+            ]
+        )
+    t = Table(data, colWidths=widths, repeatRows=1 if header else 0)
+    cmds = [
+        ("BACKGROUND", (0, 0), (-1, 0), ROW),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("GRID", (0, 0), (-1, -1), 0.35, LINE),
+        ("TEXTCOLOR", (0, 0), (-1, 0), HEAD),
+    ]
+    t.setStyle(TableStyle(cmds))
+    return t
 
 
 def build():
     doc = SimpleDocTemplate(
         str(OUT),
         pagesize=A4,
-        leftMargin=18 * mm,
-        rightMargin=18 * mm,
-        topMargin=16 * mm,
-        bottomMargin=16 * mm,
-        title="Вердикт собеседования — 31.08.2026",
-        author="Техническое интервью, галереи / full-stack",
+        leftMargin=16 * mm,
+        rightMargin=16 * mm,
+        topMargin=14 * mm,
+        bottomMargin=14 * mm,
+        title="Заключение по кандидату — 31.08.2026",
+        author="Найм, full-stack галерей",
     )
 
     story = [
-        p("Техническое интервью · full-stack галерей (PHP/Symfony + React)", META),
-        p("31.08.2026 · расшифровка Video_2026-08-31_17-08-52.srt · ~47 мин", META),
-        p("Не брать", VERDICT),
-        p(
-            "Вакансия: коммерческий Symfony, React, один человек под фаундером без дейликов. "
-            "Кандидат: Laravel-бэкендер (аутстафф Ашана), коммерческого Symfony нет, "
-            "фронт сейчас не пишет, кейс региона не дошёл до файлов и cutover."
+        P("Конфиденциально · внутренний документ по найму", META),
+        P("Заключение по кандидату", H1),
+        P(
+            "31 августа 2026 · техническое интервью, ~47 мин · "
+            "роль: full-stack (PHP 8 / Symfony, React), галереи для фотографов · "
+            "источник: Video_2026-08-31_17-08-52.srt",
+            META,
         ),
-        p("Оценки", H2),
-    ]
-
-    header = [
-        p("Критерий", CELLB),
-        p("Балл", CELLB),
-        p("Факт", CELLB),
-    ]
-    rows = [
-        [
-            "PHP 8 / Symfony / Postgres",
-            "1–2",
-            "Laravel живой. «Коммерческого опыта симфонии не было». Doctrine — теория. Postgres/миграции не было.",
-        ],
-        [
-            "React",
-            "2",
-            "Старый React/Umi. Сейчас чисто бэк. «Не так силен во фронте». Router v6 / публичные галереи — нет.",
-        ],
-        [
-            "Кейс региона",
-            "2",
-            "Флаги сначала на фронте, потом инстанс + коннектор оплат. Нет блобов, очередей, rollback, 403 на API.",
-        ],
-        [
-            "Самостоятельность",
-            "2",
-            "Негласный лид, ходит к SDM. Канбан, дейли, архком. Последний месяц «задач особо нету».",
-        ],
-        [
-            "AI",
-            "3",
-            "Codex + китайские модели, валидирует. Риск: два месяца «только с AI», код смотрит по диагонали.",
-        ],
-        [
-            "Плюсы (Kafka, Docker, платежи)",
-            "3",
-            "Kafka/Rabbit/K8s, Т-Банк. Stripe по эндпоинтам не знает. Go — книга. Next — не его.",
-        ],
-    ]
-    data = [header]
-    for crit, score, fact in rows:
-        data.append([p(crit, CELLB), p(score, CELLB), p(fact, CELL)])
-
-    table = Table(data, colWidths=[42 * mm, 14 * mm, 118 * mm])
-    table.setStyle(
-        TableStyle(
+        P("Рекомендация: отказ", DEC),
+        P(
+            "Кандидата на эту позицию не нанимать. Роль требует коммерческий Symfony, "
+            "React (включая публичные галереи) и самостоятельную работу с фаундером без "
+            "спринтов. Кандидат — backend на Laravel в аутстаффе. Коммерческого Symfony нет. "
+            "React в текущей работе не использует. В задаче «второй регион и отключение "
+            "функций» не закрыты файлы, переключение и откат. Как единственный full-stack "
+            "на продукт это неоправданный риск по срокам и качеству."
+        ),
+        P("Соответствие вакансии", H2),
+        table(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), ROW),
-                ("TEXTCOLOR", (0, 0), (-1, -1), INK),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                ("TOPPADDING", (0, 0), (-1, -1), 5),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-                ("GRID", (0, 0), (-1, -1), 0.4, LINE),
-                ("ALIGN", (1, 0), (1, -1), "CENTER"),
-            ]
-        )
-    )
-    story += [table, p("Стоп-факторы", H2)]
-
-    stops = [
-        "<b>Symfony.</b> Прямая цитата: коммерческого опыта не было. «Знаю бандлы» — не замена 2 годам в вакансии.",
-        "<b>Режим работы.</b> Вам: один, задачи в 19:00, без спринтов. Ему: SDM, дейли, архком, простой без бэклога.",
-        "<b>Кейс не про галереи.</b> Копия инстанса, валюта, юрлицо. Не фото, не zip/watermark, не ссылка клиента в момент копирования.",
-        "<b>Нет вопросов про продукт.</b> ImageProxy и «не имею представления, что как».",
-        "<b>AI-автопилот.</b> Инструмент взрослый, но два месяца пишет только агентом и ревьюит по диагонали. Ревьюера у вас не будет.",
-    ]
-    for item in stops:
-        story.append(p("• " + item, LI))
-
-    story += [
-        p("Что было сильно", H2),
-        p("• Не врал про Symfony и фронт.", LI),
-        p("• Т-Банк руками: ссылка → редирект → возврат в корзину. Не «Stripe сам всё делает».", LI),
-        p("• Коннектор оплат вместо if по стране.", LI),
-        p("• AI: сравнивает модели, оставляет финальное слово за собой, ловит N+1 у коллег.", LI),
-        p("Цитаты", H2),
-        p("«Чтобы коммерческого опыта симфонии, ну, я бы сказал, не было.»", QUOTE),
-        p("«Не так я силен во фронте, как силен в бэке.»", QUOTE),
-        p("«Последние, наверное, два месяца только пишу с помощью AI.» / код «по диагонали».", QUOTE),
-        p("«Последний, наверное, месяц задач особо нету.»", QUOTE),
-        p("«Я бы делал всё-таки фичи флаги, но это именно корректно на том же самом фронте.»", QUOTE),
-        p("«Я даже не имею представления, что как.»", QUOTE),
-        p("Если всё же тестировать", H2),
-        p(
-            "Не как единственный full-stack. Только бэк на платежи/флаги. "
-            "Кусок: выключить магазин на API (не кнопкой) и прогнать платёж/вебхук. "
-            "Если без агента не читает чужую Doctrine-схему — стоп. "
-            "Плюсы (Kafka, K8s) дыру в Symfony не закрывают."
+                ["Требование", "Статус", "Комментарий"],
+                [
+                    "PHP 8, от 2 лет",
+                    "Частично",
+                    "PHP и Laravel есть, включая e-commerce и интеграции.",
+                ],
+                [
+                    "Symfony",
+                    "Нет",
+                    "Коммерческого опыта нет. Doctrine — на уровне сравнения с Active Record.",
+                ],
+                [
+                    "React, router v6",
+                    "Нет",
+                    "Краткий опыт в прошлом. Сейчас только backend. Фронтенд сам считает слабой стороной.",
+                ],
+                [
+                    "PostgreSQL, Doctrine",
+                    "Не показано",
+                    "Живые миграции и разбор чужой схемы в разговоре не было.",
+                ],
+                [
+                    "API",
+                    "Да",
+                    "Сервисы, BFF, Kafka, платёжный сценарий Т-Банка.",
+                ],
+                [
+                    "AI",
+                    "Да, с риском",
+                    "Агенты и проверка результата. Два месяца пишет в основном через AI, просмотр поверхностный.",
+                ],
+                [
+                    "Работа без спринтов",
+                    "Нет",
+                    "Канбан, daily, SDM, архком. При пустом бэклоге простой около месяца.",
+                ],
+                [
+                    "Stripe, Go, Next.js",
+                    "Не опора",
+                    "Stripe по шагам не знает. Go изучает. Next.js — соседняя команда.",
+                ],
+            ],
+            [42 * mm, 28 * mm, 108 * mm],
         ),
-        p(
-            "Ограничение: SRT без реплик интервьюера, старт с середины фразы. "
-            "Вердикт по речи кандидата. Symfony в проде в первой минуте не звучал.",
+        P(
+            "Обязательные пункты по Symfony, React и формату работы не закрыты. "
+            "Kafka, Kubernetes и платежи это не компенсируют.",
+            BODY,
+        ),
+        P("Оценка компетенций", H2),
+        P("Шкала: 1 слабо · 2 ниже порога роли · 3 приемлемо · 4 сильно", META),
+        Spacer(1, 2 * mm),
+        table(
+            [
+                ["Компетенция", "Балл", "Смысл для найма"],
+                [
+                    "PHP / Symfony / данные",
+                    "2",
+                    "Закроет Laravel. Не закроет ваш Symfony и Doctrine без обучения на вашей базе.",
+                ],
+                [
+                    "React",
+                    "2",
+                    "Не закрывает публичные галереи.",
+                ],
+                [
+                    "Кейс региона",
+                    "2",
+                    "Флаги, инстанс, коннектор оплат. Нет разделения файлов и метаданных, cutover, запрета оплаты на API.",
+                ],
+                [
+                    "Автономия",
+                    "2",
+                    "Силён как неформальный лид в команде. Продукт без внешнего потока задач сам не ведёт.",
+                ],
+                [
+                    "AI",
+                    "3",
+                    "Применяет сознательно. Без второго ревьюера опасен режим «агент пишет — человек смотрит по диагонали».",
+                ],
+                [
+                    "Инфра и интеграции",
+                    "3",
+                    "Полезный фон. Не заменяет пробел в стеке продукта.",
+                ],
+            ],
+            [42 * mm, 14 * mm, 122 * mm],
+        ),
+        P("Риски при найме на текущую роль", H2),
+        P(
+            "1. <b>Срок выхода.</b> Первые недели — изучение Symfony и схемы, не поставка. Один исполнитель: простой дороже, чем в команде.",
+            LI,
+        ),
+        P(
+            "2. <b>Галереи.</b> Нет подтверждённого опыта клиентского доступа по ссылке, превью, больших альбомов.",
+            LI,
+        ),
+        P(
+            "3. <b>Платежи в другом регионе.</b> Отключение магазина только в интерфейсе оставляет риск принять оплату.",
+            LI,
+        ),
+        P(
+            "4. <b>Контур управления.</b> Привычны daily и постановка от менеджера. Вечерняя постановка фаундера без командных ритуалов с ним не совпадает.",
+            LI,
+        ),
+        P(
+            "5. <b>Качество при AI.</b> Без второго ревьюера выше вероятность дефектов в оплате и доступе к чужим галереям.",
+            LI,
+        ),
+        KeepTogether(
+            [
+                P("Сильные стороны", H2),
+                P("Честно обозначил отсутствие Symfony и слабость фронтенда.", LI),
+                P("Платёжный сценарий Т-Банка описал по шагам: ссылка, редирект, возврат, фиксация.", LI),
+                P("Для нескольких платёжных систем предлагает коннектор, а не ветвление по стране.", LI),
+                P("Проверяет результат модели; приводит ошибки в чужом коде (лишние запросы).", LI),
+                P(
+                    "Профиль достаточен для mid-level backend на Laravel в команде. Для указанной роли — нет.",
+                    BODY,
+                ),
+            ]
+        ),
+        P("Дальнейшие действия", H2),
+        P(
+            "По этой вакансии — отказ. Рассматривать как узкий backend (платежи, флаги, интеграции) "
+            "только если роль будет изменена и Symfony/React закроет другой человек. "
+            "Пока роль не менялась, этот путь не предлагается."
+        ),
+        P(
+            "Ограничение: в расшифровке почти нет реплик интервьюера, запись начинается с середины фразы. "
+            "Вывод — по речи кандидата. Утверждения о коммерческом Symfony в скрытой части файла нет.",
             META,
         ),
     ]
@@ -192,11 +250,11 @@ def build():
         canvas.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
         canvas.setStrokeColor(LINE)
         canvas.setLineWidth(0.4)
-        canvas.line(18 * mm, 12 * mm, A4[0] - 18 * mm, 12 * mm)
+        canvas.line(16 * mm, 10 * mm, A4[0] - 16 * mm, 10 * mm)
         canvas.setFont("Inter", 8)
         canvas.setFillColor(MUTED)
-        canvas.drawString(18 * mm, 8 * mm, "Не для кандидата")
-        canvas.drawRightString(A4[0] - 18 * mm, 8 * mm, f"{doc_.page}")
+        canvas.drawString(16 * mm, 6.5 * mm, "Конфиденциально")
+        canvas.drawRightString(A4[0] - 16 * mm, 6.5 * mm, str(doc_.page))
         canvas.restoreState()
 
     doc.build(story, onFirstPage=page, onLaterPages=page)
